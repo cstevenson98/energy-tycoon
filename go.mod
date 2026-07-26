@@ -3,7 +3,7 @@ module github.com/cstevenson98/energy-tycoon
 go 1.24.3
 
 require (
-	github.com/cstevenson98/gowasm-engine v0.0.0-00010101000000-000000000000
+	github.com/cstevenson98/milo v0.0.0-00010101000000-000000000000
 	github.com/hajimehoshi/ebiten/v2 v2.9.9
 	golang.org/x/image v0.31.0
 	gonum.org/v1/gonum v0.17.0
@@ -20,4 +20,4 @@ require (
 	golang.org/x/sys v0.36.0 // indirect
 )
 
-replace github.com/cstevenson98/gowasm-engine => ../gowasm-engine
+replace github.com/cstevenson98/milo => ../milo

@@ -1,6 +1,6 @@
 package grid
 
-import "github.com/cstevenson98/gowasm-engine/pkg/ecs"
+import "github.com/cstevenson98/milo/pkg/ecs"
 
 // DevicePortHost is a generator or house that owns cardinal ghost ports.
 // All four empty cardinal neighbours snap to that host's single network bus.

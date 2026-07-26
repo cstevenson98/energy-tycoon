@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cstevenson98/gowasm-engine/pkg/ecs"
-	"github.com/cstevenson98/gowasm-engine/pkg/logger"
+	"github.com/cstevenson98/milo/pkg/ecs"
+	"github.com/cstevenson98/milo/pkg/logger"
 )
 
 // ErrDuplicateBus is returned by AddBus when the entity already has a bus.

@@ -8,8 +8,8 @@ import (
 	"github.com/cstevenson98/energy-tycoon/game/components/grid"
 	"github.com/cstevenson98/energy-tycoon/game/components/network"
 	"github.com/cstevenson98/energy-tycoon/game/components/sim"
-	"github.com/cstevenson98/gowasm-engine/pkg/ecs"
-	"github.com/cstevenson98/gowasm-engine/pkg/imgui"
+	"github.com/cstevenson98/milo/pkg/ecs"
+	"github.com/cstevenson98/milo/pkg/imgui"
 )
 
 func (s *GridState) renderNetworkPanel(w *imgui.WindowBuilder, net *network.ElectricalNetwork) {

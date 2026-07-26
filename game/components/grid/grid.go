@@ -4,7 +4,7 @@
 // behaviour lives in the systems packages.
 package grid
 
-import "github.com/cstevenson98/gowasm-engine/pkg/ecs"
+import "github.com/cstevenson98/milo/pkg/ecs"
 
 // Tool identifies which kind of object the player currently has selected to
 // place (or ToolNone, meaning clicks select a cell for the inspector).

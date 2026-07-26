@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/cstevenson98/energy-tycoon/game/components/network"
-	"github.com/cstevenson98/gowasm-engine/pkg/ecs"
+	"github.com/cstevenson98/milo/pkg/ecs"
 )
 
 func TestSeriesRingBuffer(t *testing.T) {

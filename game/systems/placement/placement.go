@@ -7,9 +7,9 @@ import (
 	"github.com/cstevenson98/energy-tycoon/game/components/grid"
 	"github.com/cstevenson98/energy-tycoon/game/gameconfig"
 	"github.com/cstevenson98/energy-tycoon/game/systems/wiring"
-	"github.com/cstevenson98/gowasm-engine/pkg/components"
-	"github.com/cstevenson98/gowasm-engine/pkg/ecs"
-	"github.com/cstevenson98/gowasm-engine/pkg/logger"
+	"github.com/cstevenson98/milo/pkg/components"
+	"github.com/cstevenson98/milo/pkg/ecs"
+	"github.com/cstevenson98/milo/pkg/logger"
 )
 
 // PlacementSystem turns toolbar clicks and active-tool grid clicks into

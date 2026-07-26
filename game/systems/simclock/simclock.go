@@ -3,7 +3,7 @@ package simclock
 
 import (
 	"github.com/cstevenson98/energy-tycoon/game/components/sim"
-	"github.com/cstevenson98/gowasm-engine/pkg/ecs"
+	"github.com/cstevenson98/milo/pkg/ecs"
 )
 
 // SimClockSystem maps wall-clock dt into simulation milliseconds.

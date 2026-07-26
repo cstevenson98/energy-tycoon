@@ -2,7 +2,7 @@ package grid
 
 import (
 	"github.com/cstevenson98/energy-tycoon/game/gameconfig"
-	"github.com/cstevenson98/gowasm-engine/pkg/components"
+	"github.com/cstevenson98/milo/pkg/components"
 )
 
 // ScreenToCell converts a screen-space point (virtual pixels) to a grid cell

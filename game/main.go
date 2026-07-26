@@ -8,10 +8,10 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/cstevenson98/energy-tycoon/states"
-	"github.com/cstevenson98/gowasm-engine/pkg/config"
-	"github.com/cstevenson98/gowasm-engine/pkg/engine"
-	"github.com/cstevenson98/gowasm-engine/pkg/logger"
-	"github.com/cstevenson98/gowasm-engine/pkg/types"
+	"github.com/cstevenson98/milo/pkg/config"
+	"github.com/cstevenson98/milo/pkg/engine"
+	"github.com/cstevenson98/milo/pkg/logger"
+	"github.com/cstevenson98/milo/pkg/types"
 )
 
 func main() {

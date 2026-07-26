@@ -1,19 +1,19 @@
 # Energy Tycoon
 
-Grid / power-network sim game built on [`gowasm-engine`](https://github.com/cstevenson98/gowasm-engine).
+Grid / power-network sim game built on [`milo`](https://github.com/cstevenson98/milo).
 
 ## Local engine (dev)
 
 This module depends on the engine via a local `replace` while the library is unpublished or you're hacking both side-by-side:
 
 ```go
-replace github.com/cstevenson98/gowasm-engine => ../gowasm-engine
+replace github.com/cstevenson98/milo => ../milo
 ```
 
 Expected layout:
 
 ```
-~/dev/gowasm-engine/
+~/dev/milo/
 ~/dev/energy-tycoon/
 ```
 

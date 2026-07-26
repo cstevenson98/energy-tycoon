@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/cstevenson98/energy-tycoon/game/components/network"
-	"github.com/cstevenson98/gowasm-engine/pkg/ecs"
+	"github.com/cstevenson98/milo/pkg/ecs"
 )
 
 // helper: spawn a dummy ECS entity so we can attach a bus to it.

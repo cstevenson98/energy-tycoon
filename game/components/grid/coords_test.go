@@ -5,7 +5,7 @@ import (
 
 	"github.com/cstevenson98/energy-tycoon/game/components/grid"
 	"github.com/cstevenson98/energy-tycoon/game/gameconfig"
-	"github.com/cstevenson98/gowasm-engine/pkg/components"
+	"github.com/cstevenson98/milo/pkg/components"
 )
 
 func TestScreenToCellAndRect(t *testing.T) {

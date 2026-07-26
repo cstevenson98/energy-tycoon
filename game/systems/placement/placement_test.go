@@ -8,7 +8,7 @@ import (
 	"github.com/cstevenson98/energy-tycoon/game/systems/loadflow"
 	"github.com/cstevenson98/energy-tycoon/game/systems/placement"
 	"github.com/cstevenson98/energy-tycoon/game/systems/wiring"
-	"github.com/cstevenson98/gowasm-engine/pkg/ecs"
+	"github.com/cstevenson98/milo/pkg/ecs"
 )
 
 // Exercise completeLine via exporting through a thin test hook: place a

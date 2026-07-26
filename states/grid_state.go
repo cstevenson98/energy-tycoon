@@ -11,12 +11,12 @@ import (
 	"github.com/cstevenson98/energy-tycoon/game/systems/placement"
 	"github.com/cstevenson98/energy-tycoon/game/systems/pointer"
 	"github.com/cstevenson98/energy-tycoon/game/systems/simclock"
-	"github.com/cstevenson98/gowasm-engine/pkg/components"
-	"github.com/cstevenson98/gowasm-engine/pkg/ecs"
-	"github.com/cstevenson98/gowasm-engine/pkg/imgui"
-	"github.com/cstevenson98/gowasm-engine/pkg/prefab"
-	"github.com/cstevenson98/gowasm-engine/pkg/state"
-	"github.com/cstevenson98/gowasm-engine/pkg/types"
+	"github.com/cstevenson98/milo/pkg/components"
+	"github.com/cstevenson98/milo/pkg/ecs"
+	"github.com/cstevenson98/milo/pkg/imgui"
+	"github.com/cstevenson98/milo/pkg/prefab"
+	"github.com/cstevenson98/milo/pkg/state"
+	"github.com/cstevenson98/milo/pkg/types"
 )
 
 // GridState is the (only) state of the grid-sim-game example: a scrollable

@@ -1,6 +1,6 @@
 package network
 
-import "github.com/cstevenson98/gowasm-engine/pkg/ecs"
+import "github.com/cstevenson98/milo/pkg/ecs"
 
 // DefaultHistoryCap is the number of past solves retained per series
 // (bus P/Q/V/δ and branch |I|).
