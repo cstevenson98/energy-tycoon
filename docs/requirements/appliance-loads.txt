@@ -1,0 +1,19 @@
+Appliance loads
+
+Alternative to named load profiles: house demand is the sum of appliances
+advanced on a fixed sim-time tick (Step), not a next-event queue.
+
+Goal
+- Pluggable ApplianceBehaviour strategies (fridge, always-on, HVAC, …).
+- ApplianceLoadSystem steps every IntervalMs; each behaviour gets dt.
+- HouseLoad.Source selects Profile vs Appliances; live P/Q still feed wiring/loadflow.
+- Global outdoor temperature: diurnal sine (mean 20 °C ± 5 °C, coldest ~05:00)
+  plus slowly varying noise.
+- HVAC: setpoint 20 °C, on when |Tindoor-20| > 1 °C. Indoor leaks toward outdoor
+  proportional to ΔT (colder days sap faster); HVAC adds a fixed heat/cool drive.
+
+Acceptance
+- Residential kit at spawn: fridge + always_on + HVAC.
+- ApplianceLoadSystem advances ambient + steps appliances; updates HouseLoad/PQ.
+- LoadTickSystem only updates DemandProfile houses.
+- Behaviours register by kind; new kinds need no system changes.

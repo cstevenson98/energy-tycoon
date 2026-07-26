@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 
+	"github.com/cstevenson98/energy-tycoon/game/components/appliance"
 	"github.com/cstevenson98/energy-tycoon/game/components/grid"
 	"github.com/cstevenson98/energy-tycoon/game/components/network"
 	"github.com/cstevenson98/energy-tycoon/game/components/sim"
@@ -204,11 +205,53 @@ func (s *GridState) renderVoltageProfiles(w *imgui.WindowBuilder, net *network.E
 }
 
 // busHist holds one bus entity's solve history in kW / kvar / volts.
+// hours is hour-of-day in [0, 24), with NaN breaks at midnight wraps.
 type busHist struct {
-	id     network.BusID
-	pKW    []float64
-	qKVAR  []float64
-	vVolts []float64
+	id        network.BusID
+	hours     []float64
+	pKW       []float64
+	qKVAR     []float64
+	vVolts    []float64
+	timeLabel string // e.g. "14:05–16:20"
+}
+
+// hourOfDaySeries maps HoursSinceEpoch → [0, 24) and inserts NaN separators
+// when the series crosses midnight so the line does not draw backwards.
+func hourOfDaySeries(hoursSinceEpoch, ys []float64) (xs, out []float64) {
+	if len(hoursSinceEpoch) == 0 || len(ys) == 0 {
+		return nil, nil
+	}
+	n := len(hoursSinceEpoch)
+	if len(ys) < n {
+		n = len(ys)
+	}
+	xs = make([]float64, 0, n+n/4)
+	out = make([]float64, 0, n+n/4)
+	var prev float64
+	for i := 0; i < n; i++ {
+		h := hoursSinceEpoch[i]
+		tod := h - 24*math.Floor(h/24)
+		if i > 0 && tod < prev {
+			xs = append(xs, math.NaN())
+			out = append(out, math.NaN())
+		}
+		xs = append(xs, tod)
+		out = append(out, ys[i])
+		prev = tod
+	}
+	return xs, out
+}
+
+func historyTimeLabel(hoursSinceEpoch []float64) string {
+	if len(hoursSinceEpoch) == 0 {
+		return ""
+	}
+	start := sim.FormatClockHM(sim.MsFromHoursSinceEpoch(hoursSinceEpoch[0]))
+	end := sim.FormatClockHM(sim.MsFromHoursSinceEpoch(hoursSinceEpoch[len(hoursSinceEpoch)-1]))
+	if start == end {
+		return start
+	}
+	return start + "–" + end
 }
 
 // collectBusHistories returns BusHistory series for buses of the given type,
@@ -237,6 +280,7 @@ func (s *GridState) collectBusHistories(
 		if h == nil || h.P.Len() == 0 {
 			continue
 		}
+		absHours := h.T.Values()
 		p := h.P.Values()
 		q := h.Q.Values()
 		v := h.V.Values()
@@ -252,7 +296,17 @@ func (s *GridState) collectBusHistories(
 				qKVAR[i] = sign * q[i] / 1000
 			}
 		}
-		out = append(out, busHist{id: id, pKW: pKW, qKVAR: qKVAR, vVolts: v})
+		hx, pPlot := hourOfDaySeries(absHours, pKW)
+		_, qPlot := hourOfDaySeries(absHours, qKVAR)
+		_, vPlot := hourOfDaySeries(absHours, v)
+		out = append(out, busHist{
+			id:        id,
+			hours:     hx,
+			pKW:       pPlot,
+			qKVAR:     qPlot,
+			vVolts:    vPlot,
+			timeLabel: historyTimeLabel(absHours),
+		})
 	}
 	return out
 }
@@ -288,17 +342,21 @@ func (s *GridState) renderOneBusHistory(
 	h busHist,
 	pqAxis string,
 ) {
-	w.Text("%s bus %d  (%d samples)", kind, h.id, len(h.pKW))
+	if h.timeLabel != "" {
+		w.Text("%s bus %d  %s  (%d samples)", kind, h.id, h.timeLabel, len(h.pKW))
+	} else {
+		w.Text("%s bus %d  (%d samples)", kind, h.id, len(h.pKW))
+	}
 	w.Columns(2)
 	w.Plot(fmt.Sprintf("%s%d P/Q", kind, h.id), perBusPlotHeight, func(p *imgui.PlotBuilder) {
-		p.SetupAxes("solve #", pqAxis)
-		p.Line("P", h.pKW)
-		p.Line("Q", h.qKVAR)
+		p.SetupAxesXLimits("hour (24h)", pqAxis, 0, 24)
+		p.LineXY("P", h.hours, h.pKW)
+		p.LineXY("Q", h.hours, h.qKVAR)
 	})
 	w.NextColumn()
 	w.Plot(fmt.Sprintf("%s%d |V|", kind, h.id), perBusPlotHeight, func(p *imgui.PlotBuilder) {
-		p.SetupAxes("solve #", "V")
-		p.Line("|V|", h.vVolts)
+		p.SetupAxesXLimits("hour (24h)", "V", 0, 24)
+		p.LineXY("|V|", h.hours, h.vVolts)
 	})
 	w.Columns(1)
 }
@@ -336,6 +394,86 @@ func (s *GridState) renderSimulationPanel(w *imgui.WindowBuilder) {
 		}
 		w.Button(label, func() { clock.SetSpeedIndex(idx) })
 	}
+
+	s.renderAmbientPanel(w, clock)
+	s.renderApplianceSummary(w)
+}
+
+func (s *GridState) renderAmbientPanel(w *imgui.WindowBuilder, clock *sim.SimClock) {
+	amb := ecs.GetResource[appliance.AmbientTemp](s.World())
+	if amb == nil {
+		return
+	}
+	w.Separator()
+	w.Text("Weather")
+	base := appliance.DiurnalBaseC(sim.DayFraction(clock.NowMs))
+	w.Text("  Outdoor: %.1f °C  (diurnal %.1f °C)", amb.OutdoorC, base)
+	w.Text("  Day cycle: %.0f ± %.0f °C  + noise",
+		appliance.OutdoorMeanC, appliance.OutdoorAmplitudeC)
+	w.Text("  HVAC setpoints: N(%.0f, %.0f²) °C  deadband ±%.0f",
+		appliance.HVACSetpointMeanC, appliance.HVACSetpointSigmaC, appliance.HVACDeadbandC)
+}
+
+func (s *GridState) renderApplianceSummary(w *imgui.WindowBuilder) {
+	houses := ecs.NewFilter2[grid.HouseLoad, appliance.HouseAppliances](s.World())
+	n := 0
+	onCount := 0
+	var pSum, qSum float64
+	houses.Each(func(_ ecs.Entity, hl *grid.HouseLoad, ha *appliance.HouseAppliances) {
+		if hl.Source != grid.DemandAppliances {
+			return
+		}
+		n++
+		pSum += hl.PKw
+		qSum += hl.QKw
+		for i := range ha.Items {
+			if ha.Items[i].On {
+				onCount++
+			}
+		}
+	})
+	if n == 0 {
+		return
+	}
+	w.Separator()
+	w.Text("Appliance loads")
+	w.Text("  Houses: %d  devices on: %d", n, onCount)
+	w.Text("  Total demand: %.2f kW  %.2f kvar", pSum, qSum)
+}
+
+func (s *GridState) renderApplianceLine(w *imgui.WindowBuilder, inst *appliance.Instance) {
+	on := "off"
+	if inst.On {
+		on = "on"
+	}
+	liveP, liveQ := 0.0, 0.0
+	if b := appliance.Lookup(inst.Kind); b != nil {
+		liveP, liveQ = b.PowerKW(inst)
+	}
+
+	switch inst.Kind {
+	case appliance.KindHVAC:
+		mode := "idle"
+		indoor := appliance.IndoorC(inst)
+		set := appliance.SetpointC(inst)
+		if inst.On {
+			if indoor > set {
+				mode = "cool"
+			} else {
+				mode = "heat"
+			}
+		}
+		w.Text("  %s: %s (%s)", inst.Kind, on, mode)
+		w.Text("    indoor %.1f °C  set %.1f °C", indoor, set)
+		w.Text("    draw %.2f kW / %.2f kvar  rated %.2f kW", liveP, liveQ, inst.RatedPKw)
+	case appliance.KindFridge:
+		w.Text("  %s: %s", inst.Kind, on)
+		w.Text("    draw %.2f kW / %.2f kvar  rated %.2f kW", liveP, liveQ, inst.RatedPKw)
+		w.Text("    cycle in %s", appliance.FormatDuration(appliance.FridgeTimerMs(inst)))
+	default:
+		w.Text("  %s: %s", inst.Kind, on)
+		w.Text("    draw %.2f kW / %.2f kvar  rated %.2f kW", liveP, liveQ, inst.RatedPKw)
+	}
 }
 
 func (s *GridState) renderSelectionPanel(w *imgui.WindowBuilder, net *network.ElectricalNetwork) {
@@ -366,9 +504,20 @@ func (s *GridState) renderSelectionPanel(w *imgui.WindowBuilder, net *network.El
 	w.Text("  Occupant: %s", kind)
 
 	if hl := ecs.NewMap1[grid.HouseLoad](s.World()).Get(e); hl != nil {
-		prof := grid.LookupProfile(hl.Profile)
-		w.Text("  HouseLoad: %s  peak=%.2f kW", prof.Name, hl.PeakKW)
+		switch hl.Source {
+		case grid.DemandAppliances:
+			w.Text("  Demand: appliances")
+		default:
+			prof := grid.LookupProfile(hl.Profile)
+			w.Text("  Demand: %s  peak=%.2f kW", prof.Name, hl.PeakKW)
+		}
 		w.Text("    P=%.2f kW  Q=%.2f kvar", hl.PKw, hl.QKw)
+	}
+	if ha := ecs.NewMap1[appliance.HouseAppliances](s.World()).Get(e); ha != nil {
+		w.Text("  Appliances")
+		for i := range ha.Items {
+			s.renderApplianceLine(w, &ha.Items[i])
+		}
 	}
 	if gp := ecs.NewMap1[grid.GeneratorProps](s.World()).Get(e); gp != nil {
 		w.Text("  MaxOutput: %.1f kW", gp.MaxOutputKW)

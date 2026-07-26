@@ -90,3 +90,24 @@ func DayFraction(ms int64) float64 {
 	}
 	return float64(tod) / float64(MsPerDay)
 }
+
+// HoursSinceEpoch returns sim hours elapsed since EpochMs (may be fractional).
+func HoursSinceEpoch(ms int64) float64 {
+	return float64(ms-EpochMs) / float64(MsPerHour)
+}
+
+// HourOfDay returns the UTC clock hour as a float in [0, 24).
+// Example: 13:30 → 13.5.
+func HourOfDay(ms int64) float64 {
+	return DayFraction(ms) * 24
+}
+
+// FormatClockHM formats ms as UTC 24h clock "15:04".
+func FormatClockHM(ms int64) string {
+	return time.UnixMilli(ms).UTC().Format("15:04")
+}
+
+// MsFromHoursSinceEpoch converts HoursSinceEpoch back to absolute sim ms.
+func MsFromHoursSinceEpoch(hours float64) int64 {
+	return EpochMs + int64(hours*float64(MsPerHour)+0.5)
+}

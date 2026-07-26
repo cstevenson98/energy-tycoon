@@ -1,9 +1,12 @@
 package network
 
-import "github.com/cstevenson98/milo/pkg/ecs"
+import (
+	"github.com/cstevenson98/energy-tycoon/game/components/sim"
+	"github.com/cstevenson98/milo/pkg/ecs"
+)
 
 // DefaultHistoryCap is the number of past solves retained per series
-// (bus P/Q/V/δ and branch |I|).
+// (bus T/P/Q/V/δ and branch T/|I|).
 const DefaultHistoryCap = 25
 
 // Series is a fixed-capacity ring buffer of float64 samples, oldest → newest.
@@ -70,17 +73,20 @@ func (s *Series) Last() (float64, bool) {
 
 // BusHistory is an ECS component on grid entities that participate in the
 // electrical network. It stores the last DefaultHistoryCap solve results for
-// active/reactive injection (W, VAR), voltage magnitude (V), and angle (rad).
+// sim time (hours since epoch, monotonic), active/reactive injection (W, VAR),
+// voltage magnitude (V), and angle (rad).
 type BusHistory struct {
+	T     Series // sim hours since epoch (monotonic x-axis)
 	P     Series // active power injection, W (+gen)
 	Q     Series // reactive power injection, VAR
 	V     Series // |V|, volts
 	Delta Series // voltage angle, radians
 }
 
-// NewBusHistory creates empty P/Q/V/δ series with DefaultHistoryCap.
+// NewBusHistory creates empty T/P/Q/V/δ series with DefaultHistoryCap.
 func NewBusHistory() BusHistory {
 	return BusHistory{
+		T:     NewSeries(DefaultHistoryCap),
 		P:     NewSeries(DefaultHistoryCap),
 		Q:     NewSeries(DefaultHistoryCap),
 		V:     NewSeries(DefaultHistoryCap),
@@ -88,8 +94,9 @@ func NewBusHistory() BusHistory {
 	}
 }
 
-// Add appends one solve sample to every bus series.
-func (h *BusHistory) Add(p, q, v, delta float64) {
+// Add appends one solve sample (sim hours + electricals) to every bus series.
+func (h *BusHistory) Add(hoursSinceEpoch, p, q, v, delta float64) {
+	h.T.Add(hoursSinceEpoch)
 	h.P.Add(p)
 	h.Q.Add(q)
 	h.V.Add(v)
@@ -98,6 +105,7 @@ func (h *BusHistory) Add(p, q, v, delta float64) {
 
 // Clear empties all bus series.
 func (h *BusHistory) Clear() {
+	h.T.Clear()
 	h.P.Clear()
 	h.Q.Clear()
 	h.V.Clear()
@@ -105,35 +113,49 @@ func (h *BusHistory) Clear() {
 }
 
 // BranchHistory stores the last DefaultHistoryCap solve results for branch
-// current magnitude (A). Branches are not grid entities, so this lives on
-// BranchState inside ElectricalNetwork.State rather than as an ECS component.
+// current magnitude (A), keyed by the same monotonic sim hours as BusHistory.
+// Branches are not grid entities, so this lives on BranchState inside
+// ElectricalNetwork.State rather than as an ECS component.
 type BranchHistory struct {
+	T       Series // sim hours since epoch
 	Current Series // |I|, amps
 }
 
-// NewBranchHistory creates an empty |I| series with DefaultHistoryCap.
+// NewBranchHistory creates empty T/|I| series with DefaultHistoryCap.
 func NewBranchHistory() BranchHistory {
-	return BranchHistory{Current: NewSeries(DefaultHistoryCap)}
+	return BranchHistory{
+		T:       NewSeries(DefaultHistoryCap),
+		Current: NewSeries(DefaultHistoryCap),
+	}
 }
 
-// Add appends one |I| sample.
-func (h *BranchHistory) Add(current float64) {
+// Add appends one (hoursSinceEpoch, |I|) sample.
+func (h *BranchHistory) Add(hoursSinceEpoch, current float64) {
+	h.T.Add(hoursSinceEpoch)
 	h.Current.Add(current)
 }
 
-// Clear empties the current series.
+// Clear empties both series.
 func (h *BranchHistory) Clear() {
+	h.T.Clear()
 	h.Current.Clear()
 }
 
 // RecordHistory reads the latest BusResult / BranchResult from net.State and
 // appends one sample to each linked entity's BusHistory and each branch's
-// BranchHistory. Entities without a BusHistory component are skipped.
+// BranchHistory, stamped with SimClock hours since epoch (monotonic).
+// Entities without a BusHistory component are skipped.
 // Call after a solve that has written results into net.State.
 func RecordHistory(w *ecs.World, net *ElectricalNetwork) {
 	if net == nil || net.State == nil || w == nil {
 		return
 	}
+
+	nowMs := sim.EpochMs
+	if clock := ecs.GetResource[sim.SimClock](w); clock != nil {
+		nowMs = clock.NowMs
+	}
+	hours := sim.HoursSinceEpoch(nowMs)
 
 	busHist := ecs.NewMap1[BusHistory](w)
 	for id, bus := range net.Buses() {
@@ -145,14 +167,14 @@ func RecordHistory(w *ecs.World, net *ElectricalNetwork) {
 		if h == nil {
 			continue
 		}
-		h.Add(bs.Result.PInject, bs.Result.QInject, bs.Result.VoltMag, bs.Result.VoltAng)
+		h.Add(hours, bs.Result.PInject, bs.Result.QInject, bs.Result.VoltMag, bs.Result.VoltAng)
 	}
 
 	for _, brState := range net.State.Branches {
 		if brState == nil {
 			continue
 		}
-		brState.History.Add(brState.Result.CurrentMag)
+		brState.History.Add(hours, brState.Result.CurrentMag)
 	}
 }
 

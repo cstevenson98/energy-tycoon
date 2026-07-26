@@ -55,6 +55,9 @@ func (s *LoadTickSystem) Update(w *ecs.World, _ float64) {
 	for clock.NowMs >= s.nextFireMs {
 		dayFrac := sim.DayFraction(clock.NowMs)
 		s.houses.Each(func(_ ecs.Entity, hl *grid.HouseLoad, link *network.NetworkLink) {
+			if hl.Source != grid.DemandProfile {
+				return
+			}
 			hl.PKw, hl.QKw = grid.DemandKW(hl.Profile, hl.PeakKW, dayFrac)
 			// Consumer kW → generator-convention watts (negative = load).
 			net.SetBusSpec(link.BusID, network.PQSpec(-hl.PKw*1000, -hl.QKw*1000))

@@ -52,6 +52,37 @@ func TestSetSpeedIndexClamps(t *testing.T) {
 	}
 }
 
+func TestHoursSinceEpoch(t *testing.T) {
+	if got := sim.HoursSinceEpoch(sim.EpochMs); got != 0 {
+		t.Fatalf("HoursSinceEpoch(epoch) = %v, want 0", got)
+	}
+	if got := sim.HoursSinceEpoch(sim.EpochMs + 90*sim.MsPerMinute); got != 1.5 {
+		t.Fatalf("HoursSinceEpoch(90m) = %v, want 1.5", got)
+	}
+}
+
+func TestHourOfDay(t *testing.T) {
+	if got := sim.HourOfDay(sim.EpochMs); got != 0 {
+		t.Fatalf("HourOfDay(midnight) = %v, want 0", got)
+	}
+	if got := sim.HourOfDay(sim.EpochMs + 13*sim.MsPerHour + 30*sim.MsPerMinute); got != 13.5 {
+		t.Fatalf("HourOfDay(13:30) = %v, want 13.5", got)
+	}
+	if got := sim.HourOfDay(sim.EpochMs + 25*sim.MsPerHour); got != 1 {
+		t.Fatalf("HourOfDay(next day 01:00) = %v, want 1", got)
+	}
+}
+
+func TestFormatClockHM(t *testing.T) {
+	ms := sim.EpochMs + 15*sim.MsPerHour + 30*sim.MsPerMinute
+	if got := sim.FormatClockHM(ms); got != "15:30" {
+		t.Fatalf("FormatClockHM = %q, want 15:30", got)
+	}
+	if sim.MsFromHoursSinceEpoch(15.5) != ms {
+		t.Fatalf("MsFromHoursSinceEpoch(15.5) = %d, want %d", sim.MsFromHoursSinceEpoch(15.5), ms)
+	}
+}
+
 func TestDayFraction(t *testing.T) {
 	cases := []struct {
 		ms   int64

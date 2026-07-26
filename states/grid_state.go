@@ -1,10 +1,12 @@
 package states
 
 import (
+	"github.com/cstevenson98/energy-tycoon/game/components/appliance"
 	"github.com/cstevenson98/energy-tycoon/game/components/grid"
 	"github.com/cstevenson98/energy-tycoon/game/components/network"
 	"github.com/cstevenson98/energy-tycoon/game/components/sim"
 	"github.com/cstevenson98/energy-tycoon/game/gameconfig"
+	"github.com/cstevenson98/energy-tycoon/game/systems/applianceload"
 	"github.com/cstevenson98/energy-tycoon/game/systems/camera"
 	"github.com/cstevenson98/energy-tycoon/game/systems/loadflow"
 	"github.com/cstevenson98/energy-tycoon/game/systems/loadtick"
@@ -45,6 +47,7 @@ func (s *GridState) Enter(deps state.Deps) error {
 	ecs.SetResource(s.World(), grid.NewGridOccupancy())
 	ecs.SetResource(s.World(), network.NewElectricalNetwork())
 	ecs.SetResource(s.World(), sim.NewSimClock())
+	ecs.SetResource(s.World(), appliance.NewAmbientTemp())
 
 	cfg := gameconfig.Global
 	if cam := ecs.GetResource[components.Camera](s.World()); cam != nil {
@@ -61,12 +64,13 @@ func (s *GridState) Enter(deps state.Deps) error {
 	)
 
 	// Pointer (hover/select) before placement; simclock advances sim time;
-	// load-tick mutates P/Q on sim intervals; LoadflowSystem re-solves only
+	// appliance-load / load-tick mutate P/Q; LoadflowSystem re-solves only
 	// when Dirty; camera scrolls last.
 	s.Schedule().
 		Add(pointer.NewPointerSystem(s.World())).
 		Add(placement.NewPlacementSystem(s.World())).
 		Add(simclock.NewSimClockSystem()).
+		Add(applianceload.NewApplianceLoadSystem(s.World())).
 		Add(loadtick.NewLoadTickSystem(s.World())).
 		Add(loadflow.NewLoadflowSystem(s.World())).
 		Add(camera.NewCameraScrollSystem(cfg.CameraSpeed))

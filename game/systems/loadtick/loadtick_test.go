@@ -24,7 +24,7 @@ func TestLoadTickEvaluatesProfileWhenDue(t *testing.T) {
 
 	const peak = 5.0
 	e := ecs.NewMap2[grid.HouseLoad, network.NetworkLink](w).NewEntity(
-		&grid.HouseLoad{Profile: grid.ProfileSummerResidential, PeakKW: peak, PKw: 0, QKw: 0},
+		&grid.HouseLoad{Source: grid.DemandProfile, Profile: grid.ProfileSummerResidential, PeakKW: peak, PKw: 0, QKw: 0},
 		&network.NetworkLink{},
 	)
 	bus, err := net.AddBus(e, network.BusLoad)
@@ -64,7 +64,7 @@ func TestLoadTickPausedSkips(t *testing.T) {
 	ecs.SetResource(w, clock)
 
 	e := ecs.NewMap2[grid.HouseLoad, network.NetworkLink](w).NewEntity(
-		&grid.HouseLoad{Profile: grid.ProfileSummerResidential, PeakKW: 5, PKw: 2.0, QKw: 2.0},
+		&grid.HouseLoad{Source: grid.DemandProfile, Profile: grid.ProfileSummerResidential, PeakKW: 5, PKw: 2.0, QKw: 2.0},
 		&network.NetworkLink{},
 	)
 	bus, err := net.AddBus(e, network.BusLoad)
@@ -86,6 +86,40 @@ func TestLoadTickPausedSkips(t *testing.T) {
 	}
 }
 
+func TestLoadTickSkipsApplianceHouses(t *testing.T) {
+	w := ecs.NewWorld()
+	net := network.NewElectricalNetwork()
+	clock := &sim.SimClock{
+		Playing:    true,
+		NowMs:      sim.EpochMs + loadtick.DefaultIntervalMs,
+		DeltaMs:    1,
+		SpeedIndex: sim.DefaultSpeedIndex,
+	}
+	ecs.SetResource(w, net)
+	ecs.SetResource(w, clock)
+
+	e := ecs.NewMap2[grid.HouseLoad, network.NetworkLink](w).NewEntity(
+		&grid.HouseLoad{Source: grid.DemandAppliances, PKw: 1.5, QKw: 0.5},
+		&network.NetworkLink{},
+	)
+	bus, err := net.AddBus(e, network.BusLoad)
+	if err != nil {
+		t.Fatalf("AddBus: %v", err)
+	}
+	ecs.NewMap1[network.NetworkLink](w).Get(e).BusID = bus.ID
+	net.ClearDirty()
+
+	loadtick.NewLoadTickSystem(w).Update(w, 0)
+
+	hl := ecs.NewMap1[grid.HouseLoad](w).Get(e)
+	if hl.PKw != 1.5 || hl.QKw != 0.5 {
+		t.Fatalf("appliance house should be skipped, got P=%v Q=%v", hl.PKw, hl.QKw)
+	}
+	if net.Dirty {
+		t.Fatal("appliance house should not mark Dirty via loadtick")
+	}
+}
+
 func TestLoadTickNotYetDue(t *testing.T) {
 	w := ecs.NewWorld()
 	net := network.NewElectricalNetwork()
@@ -99,7 +133,7 @@ func TestLoadTickNotYetDue(t *testing.T) {
 	ecs.SetResource(w, clock)
 
 	e := ecs.NewMap2[grid.HouseLoad, network.NetworkLink](w).NewEntity(
-		&grid.HouseLoad{Profile: grid.ProfileSummerResidential, PeakKW: 5, PKw: 2.0, QKw: 2.0},
+		&grid.HouseLoad{Source: grid.DemandProfile, Profile: grid.ProfileSummerResidential, PeakKW: 5, PKw: 2.0, QKw: 2.0},
 		&network.NetworkLink{},
 	)
 	bus, err := net.AddBus(e, network.BusLoad)

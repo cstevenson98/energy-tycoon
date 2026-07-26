@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cstevenson98/energy-tycoon/game/components/network"
+	"github.com/cstevenson98/energy-tycoon/game/components/sim"
 	"github.com/cstevenson98/milo/pkg/ecs"
 )
 
@@ -54,6 +55,10 @@ func TestRecordHistory(t *testing.T) {
 	ecs.NewMap1[network.BusHistory](w).Add(e0, &h0)
 	ecs.NewMap1[network.BusHistory](w).Add(e1, &h1)
 
+	// 15:30 → 15.5 hours since epoch
+	clock := &sim.SimClock{NowMs: sim.EpochMs + 15*sim.MsPerHour + 30*sim.MsPerMinute, Playing: true}
+	ecs.SetResource(w, clock)
+
 	net.SetBusSpec(b1.ID, network.PQSpec(-15000, 0))
 	net.AddBranch(b0.ID, b1.ID, 0.00164, 0) // one 10 m LV feeder cell
 
@@ -64,8 +69,12 @@ func TestRecordHistory(t *testing.T) {
 
 	bh0 := ecs.NewMap1[network.BusHistory](w).Get(e0)
 	bh1 := ecs.NewMap1[network.BusHistory](w).Get(e1)
-	if bh0.V.Len() != 1 || bh1.V.Len() != 1 {
-		t.Fatalf("bus history len: gen=%d load=%d, want 1", bh0.V.Len(), bh1.V.Len())
+	if bh0.V.Len() != 1 || bh1.V.Len() != 1 || bh1.T.Len() != 1 {
+		t.Fatalf("bus history len: gen=%d load=%d T=%d, want 1", bh0.V.Len(), bh1.V.Len(), bh1.T.Len())
+	}
+	th, _ := bh1.T.Last()
+	if th != 15.5 {
+		t.Errorf("T last = %v, want 15.5 hours since epoch", th)
 	}
 	v0, _ := bh0.V.Last()
 	if v0 < 200 {
@@ -81,25 +90,34 @@ func TestRecordHistory(t *testing.T) {
 		brHist = &st.History
 		break
 	}
-	if brHist == nil || brHist.Current.Len() != 1 {
-		t.Fatal("expected one branch current sample")
+	if brHist == nil || brHist.Current.Len() != 1 || brHist.T.Len() != 1 {
+		t.Fatal("expected one branch current/time sample")
 	}
 	i, _ := brHist.Current.Last()
 	if i <= 0 {
 		t.Errorf("branch |I| = %.4f, want > 0", i)
 	}
+	bt, _ := brHist.T.Last()
+	if bt != 15.5 {
+		t.Errorf("branch T = %v, want 15.5", bt)
+	}
 
-	// Second solve grows history.
+	// Second solve grows history later (monotonic hours since epoch).
+	clock.NowMs = sim.EpochMs + 18*sim.MsPerHour
 	net.MarkDirty()
 	_ = network.NewLoadflowSolver().Solve(net)
 	network.RecordHistory(w, net)
-	if bh1.V.Len() != 2 || brHist.Current.Len() != 2 {
-		t.Fatalf("after 2nd record: bus V len=%d branch I len=%d, want 2",
-			bh1.V.Len(), brHist.Current.Len())
+	if bh1.V.Len() != 2 || brHist.Current.Len() != 2 || bh1.T.Len() != 2 {
+		t.Fatalf("after 2nd record: bus V len=%d T len=%d branch I len=%d, want 2",
+			bh1.V.Len(), bh1.T.Len(), brHist.Current.Len())
+	}
+	th2, _ := bh1.T.Last()
+	if th2 != 18 {
+		t.Errorf("T last after 2nd = %v, want 18", th2)
 	}
 
 	bh1.Clear()
-	if bh1.V.Len() != 0 || bh1.P.Len() != 0 {
+	if bh1.V.Len() != 0 || bh1.P.Len() != 0 || bh1.T.Len() != 0 {
 		t.Fatal("BusHistory.Clear should empty all series")
 	}
 }

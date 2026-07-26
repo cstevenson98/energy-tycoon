@@ -1,6 +1,7 @@
 package grid
 
 import (
+	"github.com/cstevenson98/energy-tycoon/game/components/appliance"
 	"github.com/cstevenson98/energy-tycoon/game/components/sim"
 	"github.com/cstevenson98/energy-tycoon/game/gameconfig"
 	"github.com/cstevenson98/milo/pkg/components"
@@ -53,10 +54,35 @@ func SpawnGenerator(w *ecs.World, cell GridCoord) ecs.Entity {
 }
 
 // SpawnHouse spawns a house tile at cell, on the ENTITIES layer.
-// It attaches a HouseLoad with the summer residential profile, a random peak
-// in [PeakKWMin, PeakKWMax], and P/Q evaluated at the current sim time of day
-// (or midnight at the epoch if no SimClock is present).
+// Demand is appliance-driven (fridge + always_on + HVAC). P/Q are the sum of
+// the kit at the current sim time / outdoor temperature.
 func SpawnHouse(w *ecs.World, cell GridCoord) ecs.Entity {
+	e := spawnTile(w, cell, ToolHouse, gameconfig.Global.HouseTexture, 0, false)
+
+	nowMs := sim.EpochMs
+	if clock := ecs.GetResource[sim.SimClock](w); clock != nil {
+		nowMs = clock.NowMs
+	}
+	outdoor := 20.0
+	if amb := ecs.GetResource[appliance.AmbientTemp](w); amb != nil {
+		outdoor = amb.OutdoorC
+	}
+	ctx := appliance.MakeContext(nowMs, outdoor, nil)
+	ha := appliance.NewHouseAppliances(ctx, appliance.DefaultResidentialKit(nil))
+	pKW, qKW := appliance.AggregatePower(ha)
+
+	ecs.NewMap1[HouseLoad](w).Add(e, &HouseLoad{
+		Source: DemandAppliances,
+		PKw:    pKW,
+		QKw:    qKW,
+	})
+	ecs.NewMap1[appliance.HouseAppliances](w).Add(e, ha)
+	return e
+}
+
+// SpawnHouseWithProfile spawns a house using the summer residential load
+// profile (DemandProfile). Kept for tests and profile-path exercises.
+func SpawnHouseWithProfile(w *ecs.World, cell GridCoord) ecs.Entity {
 	e := spawnTile(w, cell, ToolHouse, gameconfig.Global.HouseTexture, 0, false)
 	peak := RandPeakKW()
 	dayFrac := 0.0
@@ -65,6 +91,7 @@ func SpawnHouse(w *ecs.World, cell GridCoord) ecs.Entity {
 	}
 	pKW, qKW := DemandKW(ProfileSummerResidential, peak, dayFrac)
 	ecs.NewMap1[HouseLoad](w).Add(e, &HouseLoad{
+		Source:  DemandProfile,
 		Profile: ProfileSummerResidential,
 		PeakKW:  peak,
 		PKw:     pKW,

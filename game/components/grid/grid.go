@@ -94,11 +94,20 @@ type PlacementState struct {
 	SelectedCell GridCoord
 }
 
-// HouseLoad is the power-demand component for a house entity. Profile and
-// PeakKW identify the demand shape and scale; PKw/QKw are the live values
-// (always positive consumed power) evaluated from the profile over sim time
-// by LoadTickSystem and at spawn.
+// DemandSource selects how a house's live P/Q are produced.
+type DemandSource int
+
+const (
+	DemandProfile DemandSource = iota
+	DemandAppliances
+)
+
+// HouseLoad is the power-demand component for a house entity. Source selects
+// profile vs appliance aggregation. Profile/PeakKW apply when Source is
+// DemandProfile. PKw/QKw are the live values (always positive consumed power)
+// written by LoadTickSystem or ApplianceLoadSystem and at spawn.
 type HouseLoad struct {
+	Source  DemandSource
 	Profile ProfileID
 	PeakKW  float64
 	PKw     float64 // active power demand  [kW]
