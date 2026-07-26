@@ -80,3 +80,13 @@ func (c *SimClock) SpeedMsPerRealSec() int64 {
 func FormatSimTime(ms int64) string {
 	return time.UnixMilli(ms).UTC().Format("2 Jan 2006 15:04:05")
 }
+
+// DayFraction returns the fraction of the UTC day represented by ms, in [0, 1).
+// Negative timestamps wrap the same way as a positive modulo into the day.
+func DayFraction(ms int64) float64 {
+	tod := ms % MsPerDay
+	if tod < 0 {
+		tod += MsPerDay
+	}
+	return float64(tod) / float64(MsPerDay)
+}

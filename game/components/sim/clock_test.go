@@ -51,3 +51,22 @@ func TestSetSpeedIndexClamps(t *testing.T) {
 		t.Fatalf("fastest rate = %d, want %d", c.SpeedMsPerRealSec(), sim.MsPerWeek)
 	}
 }
+
+func TestDayFraction(t *testing.T) {
+	cases := []struct {
+		ms   int64
+		want float64
+	}{
+		{sim.EpochMs, 0},
+		{sim.EpochMs + 12*sim.MsPerHour, 0.5},
+		{sim.EpochMs + sim.MsPerDay - 1, float64(sim.MsPerDay-1) / float64(sim.MsPerDay)},
+		{sim.EpochMs + sim.MsPerDay, 0},
+		{sim.EpochMs + 6*sim.MsPerHour, 0.25},
+	}
+	for _, tc := range cases {
+		got := sim.DayFraction(tc.ms)
+		if got != tc.want {
+			t.Errorf("DayFraction(%d) = %v, want %v", tc.ms, got, tc.want)
+		}
+	}
+}

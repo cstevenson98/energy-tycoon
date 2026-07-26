@@ -1,24 +1,12 @@
 package grid
 
 import (
-	"math/rand"
-
+	"github.com/cstevenson98/energy-tycoon/game/components/sim"
 	"github.com/cstevenson98/energy-tycoon/game/gameconfig"
 	"github.com/cstevenson98/milo/pkg/components"
 	"github.com/cstevenson98/milo/pkg/ecs"
 	"github.com/cstevenson98/milo/pkg/types"
 )
-
-const (
-	HouseLoadMinKW = 1.5
-	HouseLoadMaxKW = 3.0
-)
-
-// RandLoadKW returns a uniform random value in [HouseLoadMinKW, HouseLoadMaxKW]
-// for house demand (kW or kVAR). Used at spawn and by the load-tick system.
-func RandLoadKW() float64 {
-	return HouseLoadMinKW + (HouseLoadMaxKW-HouseLoadMinKW)*rand.Float64()
-}
 
 // cellPosition returns a cell's top-left world position in pixels.
 func cellPosition(cell GridCoord) types.Vector2 {
@@ -65,11 +53,23 @@ func SpawnGenerator(w *ecs.World, cell GridCoord) ecs.Entity {
 }
 
 // SpawnHouse spawns a house tile at cell, on the ENTITIES layer.
-// It attaches a HouseLoad component with P and Q sampled uniformly from
-// [HouseLoadMinKW, HouseLoadMaxKW].
+// It attaches a HouseLoad with the summer residential profile, a random peak
+// in [PeakKWMin, PeakKWMax], and P/Q evaluated at the current sim time of day
+// (or midnight at the epoch if no SimClock is present).
 func SpawnHouse(w *ecs.World, cell GridCoord) ecs.Entity {
 	e := spawnTile(w, cell, ToolHouse, gameconfig.Global.HouseTexture, 0, false)
-	ecs.NewMap1[HouseLoad](w).Add(e, &HouseLoad{PKw: RandLoadKW(), QKw: RandLoadKW()})
+	peak := RandPeakKW()
+	dayFrac := 0.0
+	if clock := ecs.GetResource[sim.SimClock](w); clock != nil {
+		dayFrac = sim.DayFraction(clock.NowMs)
+	}
+	pKW, qKW := DemandKW(ProfileSummerResidential, peak, dayFrac)
+	ecs.NewMap1[HouseLoad](w).Add(e, &HouseLoad{
+		Profile: ProfileSummerResidential,
+		PeakKW:  peak,
+		PKw:     pKW,
+		QKw:     qKW,
+	})
 	return e
 }
 

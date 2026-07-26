@@ -1,6 +1,6 @@
-// Package loadtick implements LoadTickSystem, which periodically re-samples
-// house demand and pushes the new P/Q into ElectricalNetwork bus specs so
-// LoadflowSystem re-solves on the next dirty pass.
+// Package loadtick implements LoadTickSystem, which periodically re-evaluates
+// house demand from load profiles and pushes the new P/Q into ElectricalNetwork
+// bus specs so LoadflowSystem re-solves on the next dirty pass.
 package loadtick
 
 import (
@@ -10,14 +10,14 @@ import (
 	"github.com/cstevenson98/milo/pkg/ecs"
 )
 
-// DefaultIntervalMs is how often house loads are re-sampled in sim time.
+// DefaultIntervalMs is how often house loads are re-evaluated in sim time.
 // At the default clock speed (1 sim-hour / real-second) this is ~3 real seconds.
 const DefaultIntervalMs = 3 * sim.MsPerHour
 
 // LoadTickSystem fires on SimClock absolute time. When IntervalMs of sim time
-// elapses, it assigns a new random P/Q to every HouseLoad entity that is
-// linked into the network, then updates the corresponding BusSpec (which
-// marks the network Dirty).
+// elapses, it evaluates each wired HouseLoad's profile at the current time of
+// day (peak × shape), then updates the corresponding BusSpec (which marks the
+// network Dirty).
 type LoadTickSystem struct {
 	IntervalMs int64
 	nextFireMs int64
@@ -35,7 +35,8 @@ func NewLoadTickSystem(w *ecs.World) *LoadTickSystem {
 }
 
 // Update advances timers from SimClock; when nextFireMs is reached, all houses
-// are re-sampled. Catches up multiple intervals if a fast frame jumps ahead.
+// are re-evaluated from their profiles. Catches up multiple intervals if a
+// fast frame jumps ahead.
 func (s *LoadTickSystem) Update(w *ecs.World, _ float64) {
 	if s.IntervalMs <= 0 {
 		s.IntervalMs = DefaultIntervalMs
@@ -52,9 +53,9 @@ func (s *LoadTickSystem) Update(w *ecs.World, _ float64) {
 	}
 
 	for clock.NowMs >= s.nextFireMs {
+		dayFrac := sim.DayFraction(clock.NowMs)
 		s.houses.Each(func(_ ecs.Entity, hl *grid.HouseLoad, link *network.NetworkLink) {
-			hl.PKw = grid.RandLoadKW()
-			hl.QKw = grid.RandLoadKW()
+			hl.PKw, hl.QKw = grid.DemandKW(hl.Profile, hl.PeakKW, dayFrac)
 			// Consumer kW → generator-convention watts (negative = load).
 			net.SetBusSpec(link.BusID, network.PQSpec(-hl.PKw*1000, -hl.QKw*1000))
 		})

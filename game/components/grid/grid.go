@@ -94,12 +94,15 @@ type PlacementState struct {
 	SelectedCell GridCoord
 }
 
-// HouseLoad is the power-demand component for a house entity. P and Q are
-// in kilowatts / kilovars (kW, kVAR) and are always positive (consumed power).
-// They are sampled at spawn and periodically re-sampled by LoadTickSystem.
+// HouseLoad is the power-demand component for a house entity. Profile and
+// PeakKW identify the demand shape and scale; PKw/QKw are the live values
+// (always positive consumed power) evaluated from the profile over sim time
+// by LoadTickSystem and at spawn.
 type HouseLoad struct {
-	PKw float64 // active power demand  [kW]
-	QKw float64 // reactive power demand [kVAR]
+	Profile ProfileID
+	PeakKW  float64
+	PKw     float64 // active power demand  [kW]
+	QKw     float64 // reactive power demand [kVAR]
 }
 
 // GeneratorProps holds the nameplate parameters of a generator entity.

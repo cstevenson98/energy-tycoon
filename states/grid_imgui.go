@@ -83,6 +83,9 @@ func (s *GridState) renderNetworkPanel(w *imgui.WindowBuilder, net *network.Elec
 	w.Text("  Peak |I|: %.2f A", iMax)
 	w.Separator()
 
+	s.renderVoltageProfiles(w, net)
+	w.Separator()
+
 	s.renderBusHistoryCharts(w, net)
 	w.Separator()
 
@@ -129,6 +132,76 @@ func (s *GridState) renderNetworkPanel(w *imgui.WindowBuilder, net *network.Elec
 }
 
 const perBusPlotHeight = 220.0
+
+// Voltage-profile plot presentation (tweak these to retune the chart).
+const (
+	voltageProfilePlotHeight = 440.0 // 2× per-bus history plots
+	voltageProfileYPadFrac   = 0.10  // Y limits = nominal × (1 ± this)
+)
+
+// ohmToMetres converts cumulative branch resistance to metres assuming uniform
+// LV cable (R ∝ length via grid.CableOhmPerKm).
+func ohmToMetres(rOhm float64) float64 {
+	if grid.CableOhmPerKm <= 0 {
+		return 0
+	}
+	return rOhm * 1000 / grid.CableOhmPerKm
+}
+
+// renderVoltageProfiles draws one topological |V| vs distance plot per generator.
+// Each first-hop branch out of the generator is its own LineXY series.
+func (s *GridState) renderVoltageProfiles(w *imgui.WindowBuilder, net *network.ElectricalNetwork) {
+	w.Text("Voltage profiles")
+	if net == nil || net.State == nil {
+		w.Text("  (no state)")
+		return
+	}
+
+	ids := make([]int, 0)
+	for id, b := range net.Buses() {
+		if b.Type == network.BusGenerator {
+			ids = append(ids, int(id))
+		}
+	}
+	sort.Ints(ids)
+	if len(ids) == 0 {
+		w.Text("  (none)")
+		return
+	}
+
+	yMin := network.NominalVoltageV * (1 - voltageProfileYPadFrac)
+	yMax := network.NominalVoltageV * (1 + voltageProfileYPadFrac)
+
+	nan := math.NaN()
+	for _, raw := range ids {
+		genID := network.BusID(raw)
+		feeders := net.VoltageProfiles(genID)
+		if len(feeders) == 0 {
+			w.Text("Gen bus %d  (no feeders)", genID)
+			continue
+		}
+		w.Text("Gen bus %d", genID)
+		w.Plot(fmt.Sprintf("Vprofile%d", genID), voltageProfilePlotHeight, func(p *imgui.PlotBuilder) {
+			p.SetupAxesYLimits("m from gen", "V", yMin, yMax)
+			for _, fp := range feeders {
+				if len(fp.Segments) == 0 {
+					continue
+				}
+				xs := make([]float64, 0, len(fp.Segments)*3)
+				ys := make([]float64, 0, len(fp.Segments)*3)
+				for i, seg := range fp.Segments {
+					if i > 0 {
+						xs = append(xs, nan)
+						ys = append(ys, nan)
+					}
+					xs = append(xs, ohmToMetres(seg.DistFrom), ohmToMetres(seg.DistTo))
+					ys = append(ys, seg.VFrom, seg.VTo)
+				}
+				p.LineXY(fmt.Sprintf("feeder br%d", fp.RootBranch), xs, ys)
+			}
+		})
+	}
+}
 
 // busHist holds one bus entity's solve history in kW / kvar / volts.
 type busHist struct {
@@ -293,7 +366,9 @@ func (s *GridState) renderSelectionPanel(w *imgui.WindowBuilder, net *network.El
 	w.Text("  Occupant: %s", kind)
 
 	if hl := ecs.NewMap1[grid.HouseLoad](s.World()).Get(e); hl != nil {
-		w.Text("  HouseLoad: P=%.2f kW  Q=%.2f kvar", hl.PKw, hl.QKw)
+		prof := grid.LookupProfile(hl.Profile)
+		w.Text("  HouseLoad: %s  peak=%.2f kW", prof.Name, hl.PeakKW)
+		w.Text("    P=%.2f kW  Q=%.2f kvar", hl.PKw, hl.QKw)
 	}
 	if gp := ecs.NewMap1[grid.GeneratorProps](s.World()).Get(e); gp != nil {
 		w.Text("  MaxOutput: %.1f kW", gp.MaxOutputKW)

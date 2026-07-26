@@ -1,0 +1,14 @@
+Load profiles
+
+Today houses get a flat random P/Q in [1.5, 3.0] kW. Replace that with named load profiles that drive demand over time.
+
+Goal
+- Define load profiles (e.g. "summer residential", peak 5 kW) as a demand shape scaled by a peak.
+- Assign each house a profile + a random peak at spawn.
+- Drive HouseLoad (and thus PQ bus specs) from the active profile instead of uniform resampling.
+
+Acceptance
+- At least one residential profile with a configurable peak (example: summer residential, 5 kW).
+- SpawnHouse picks a profile and a random peak within a configured range.
+- Load updates follow the profile shape over sim time (not independent uniform draws each tick).
+- Existing loadflow / wiring path still consumes HouseLoad as today.

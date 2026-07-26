@@ -1,6 +1,7 @@
 package loadtick_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/cstevenson98/energy-tycoon/game/components/grid"
@@ -10,7 +11,7 @@ import (
 	"github.com/cstevenson98/milo/pkg/ecs"
 )
 
-func TestLoadTickResamplesWhenDue(t *testing.T) {
+func TestLoadTickEvaluatesProfileWhenDue(t *testing.T) {
 	w := ecs.NewWorld()
 	net := network.NewElectricalNetwork()
 	clock := &sim.SimClock{
@@ -21,8 +22,9 @@ func TestLoadTickResamplesWhenDue(t *testing.T) {
 	ecs.SetResource(w, net)
 	ecs.SetResource(w, clock)
 
+	const peak = 5.0
 	e := ecs.NewMap2[grid.HouseLoad, network.NetworkLink](w).NewEntity(
-		&grid.HouseLoad{PKw: 0, QKw: 0},
+		&grid.HouseLoad{Profile: grid.ProfileSummerResidential, PeakKW: peak, PKw: 0, QKw: 0},
 		&network.NetworkLink{},
 	)
 	bus, err := net.AddBus(e, network.BusLoad)
@@ -34,16 +36,15 @@ func TestLoadTickResamplesWhenDue(t *testing.T) {
 	net.ClearDirty()
 
 	sys := loadtick.NewLoadTickSystem(w)
-	clock.NowMs = sim.EpochMs + loadtick.DefaultIntervalMs
+	// 19:00 — summer residential peak knot; also past the first 3h fire.
+	clock.NowMs = sim.EpochMs + 19*sim.MsPerHour
 	clock.DeltaMs = 1
 	sys.Update(w, 0)
 
+	wantP, wantQ := grid.DemandKW(grid.ProfileSummerResidential, peak, sim.DayFraction(clock.NowMs))
 	hl := ecs.NewMap1[grid.HouseLoad](w).Get(e)
-	if hl.PKw < grid.HouseLoadMinKW || hl.PKw > grid.HouseLoadMaxKW {
-		t.Fatalf("PKw = %v, want in [%v,%v]", hl.PKw, grid.HouseLoadMinKW, grid.HouseLoadMaxKW)
-	}
-	if hl.QKw < grid.HouseLoadMinKW || hl.QKw > grid.HouseLoadMaxKW {
-		t.Fatalf("QKw = %v, want in [%v,%v]", hl.QKw, grid.HouseLoadMinKW, grid.HouseLoadMaxKW)
+	if math.Abs(hl.PKw-wantP) > 1e-9 || math.Abs(hl.QKw-wantQ) > 1e-9 {
+		t.Fatalf("got P=%v Q=%v, want P=%v Q=%v", hl.PKw, hl.QKw, wantP, wantQ)
 	}
 	if !net.Dirty {
 		t.Fatal("expected network Dirty after load tick")
@@ -63,7 +64,7 @@ func TestLoadTickPausedSkips(t *testing.T) {
 	ecs.SetResource(w, clock)
 
 	e := ecs.NewMap2[grid.HouseLoad, network.NetworkLink](w).NewEntity(
-		&grid.HouseLoad{PKw: 2.0, QKw: 2.0},
+		&grid.HouseLoad{Profile: grid.ProfileSummerResidential, PeakKW: 5, PKw: 2.0, QKw: 2.0},
 		&network.NetworkLink{},
 	)
 	bus, err := net.AddBus(e, network.BusLoad)
@@ -98,7 +99,7 @@ func TestLoadTickNotYetDue(t *testing.T) {
 	ecs.SetResource(w, clock)
 
 	e := ecs.NewMap2[grid.HouseLoad, network.NetworkLink](w).NewEntity(
-		&grid.HouseLoad{PKw: 2.0, QKw: 2.0},
+		&grid.HouseLoad{Profile: grid.ProfileSummerResidential, PeakKW: 5, PKw: 2.0, QKw: 2.0},
 		&network.NetworkLink{},
 	)
 	bus, err := net.AddBus(e, network.BusLoad)
