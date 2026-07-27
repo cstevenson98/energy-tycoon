@@ -1,4 +1,4 @@
-package states
+package gridstate
 
 import (
 	"fmt"
@@ -134,11 +134,22 @@ func (s *GridState) renderNetworkPanel(w *imgui.WindowBuilder, net *network.Elec
 
 const perBusPlotHeight = 220.0
 
-// Voltage-profile plot presentation (tweak these to retune the chart).
-const (
-	voltageProfilePlotHeight = 440.0 // 2× per-bus history plots
-	voltageProfileYPadFrac   = 0.10  // Y limits = nominal × (1 ± this)
-)
+// Voltage-profile plot presentation.
+const voltageProfilePlotHeight = 440.0 // 2× per-bus history plots
+
+// voltageProfileYPadOptions are selectable Y-axis half-widths as a fraction of
+// NominalVoltageV (dropdown labels ↔ ±pad).
+var voltageProfileYPadOptions = []struct {
+	Label string
+	Frac  float64
+}{
+	{"±1%", 0.01},
+	{"±5%", 0.05},
+	{"±10%", 0.10},
+	{"±15%", 0.15},
+	{"±20%", 0.20},
+	{"±50%", 0.50},
+}
 
 // ohmToMetres converts cumulative branch resistance to metres assuming uniform
 // LV cable (R ∝ length via grid.CableOhmPerKm).
@@ -158,6 +169,18 @@ func (s *GridState) renderVoltageProfiles(w *imgui.WindowBuilder, net *network.E
 		return
 	}
 
+	labels := make([]string, len(voltageProfileYPadOptions))
+	for i, opt := range voltageProfileYPadOptions {
+		labels[i] = opt.Label
+	}
+	w.Combo("Y range", &s.voltageProfileYPadIdx, labels)
+	pad := voltageProfileYPadOptions[0].Frac
+	if idx := s.voltageProfileYPadIdx; idx >= 0 && idx < len(voltageProfileYPadOptions) {
+		pad = voltageProfileYPadOptions[idx].Frac
+	}
+	yMin := network.NominalVoltageV * (1 - pad)
+	yMax := network.NominalVoltageV * (1 + pad)
+
 	ids := make([]int, 0)
 	for id, b := range net.Buses() {
 		if b.Type == network.BusGenerator {
@@ -169,9 +192,6 @@ func (s *GridState) renderVoltageProfiles(w *imgui.WindowBuilder, net *network.E
 		w.Text("  (none)")
 		return
 	}
-
-	yMin := network.NominalVoltageV * (1 - voltageProfileYPadFrac)
-	yMax := network.NominalVoltageV * (1 + voltageProfileYPadFrac)
 
 	nan := math.NaN()
 	for _, raw := range ids {

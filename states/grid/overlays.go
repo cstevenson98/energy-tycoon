@@ -1,4 +1,4 @@
-package states
+package gridstate
 
 import (
 	"github.com/cstevenson98/energy-tycoon/game/components/grid"
@@ -11,7 +11,7 @@ import (
 func (s *GridState) renderToolbar() {
 	cfg := gameconfig.Global
 	ui := s.UI()
-	playW := cfg.PlayfieldWidth(s.ScreenWidth())
+	playW := grid.PlayfieldWidth(s.World(), s.ScreenWidth())
 
 	ui.Rect(0, 0, playW, cfg.ToolbarHeight, types.Color{0.1, 0.1, 0.12, 1})
 
@@ -75,7 +75,7 @@ func (s *GridState) renderGridChrome() {
 
 func (s *GridState) renderGridBackground(ui types.UIManager, cam *components.Camera) {
 	cfg := gameconfig.Global
-	playW := cfg.PlayfieldWidth(s.ScreenWidth())
+	playW := grid.PlayfieldWidth(s.World(), s.ScreenWidth())
 	screenH := s.ScreenHeight()
 	ts := cfg.TileSize
 	zoom := cam.Zoom

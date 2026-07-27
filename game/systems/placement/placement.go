@@ -38,7 +38,7 @@ func (s *PlacementSystem) Update(w *ecs.World, _ float64) {
 	}
 
 	bounds := ecs.GetResource[components.ScreenBounds](w)
-	if bounds != nil && mouse.X >= gameconfig.Global.PlayfieldWidth(bounds.W) {
+	if bounds != nil && mouse.X >= grid.PlayfieldWidth(w, bounds.W) {
 		return
 	}
 

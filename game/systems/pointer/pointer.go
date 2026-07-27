@@ -29,7 +29,7 @@ func (s *PointerSystem) Update(w *ecs.World, _ float64) {
 
 	mouse := in.State.Mouse
 	bounds := ecs.GetResource[components.ScreenBounds](w)
-	updateHover(placement, cam, bounds, mouse.X, mouse.Y)
+	updateHover(w, placement, cam, bounds, mouse.X, mouse.Y)
 
 	if in.State.CPressed && !in.State.CPressedLastFrame {
 		placement.Tool = grid.ToolNone
@@ -39,7 +39,7 @@ func (s *PointerSystem) Update(w *ecs.World, _ float64) {
 	if !mouse.Left.Pressed || mouse.Left.PressedLastFrame {
 		return
 	}
-	if bounds != nil && mouse.X >= gameconfig.Global.PlayfieldWidth(bounds.W) {
+	if bounds != nil && mouse.X >= grid.PlayfieldWidth(w, bounds.W) {
 		return
 	}
 	if mouse.Y < gameconfig.Global.ToolbarHeight {
@@ -54,9 +54,9 @@ func (s *PointerSystem) Update(w *ecs.World, _ float64) {
 	}
 }
 
-func updateHover(placement *grid.PlacementState, cam *components.Camera, bounds *components.ScreenBounds, x, y float64) {
+func updateHover(w *ecs.World, placement *grid.PlacementState, cam *components.Camera, bounds *components.ScreenBounds, x, y float64) {
 	placement.HoverValid = false
-	if bounds != nil && x >= gameconfig.Global.PlayfieldWidth(bounds.W) {
+	if bounds != nil && x >= grid.PlayfieldWidth(w, bounds.W) {
 		return
 	}
 	if y < gameconfig.Global.ToolbarHeight {

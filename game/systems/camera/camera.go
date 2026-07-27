@@ -6,6 +6,7 @@ package camera
 import (
 	"math"
 
+	"github.com/cstevenson98/energy-tycoon/game/components/grid"
 	"github.com/cstevenson98/energy-tycoon/game/gameconfig"
 	"github.com/cstevenson98/milo/pkg/components"
 	"github.com/cstevenson98/milo/pkg/ecs"
@@ -69,12 +70,12 @@ func (s *CameraScrollSystem) Update(w *ecs.World, dt float64) {
 			cam.Y += s.speed * dt
 		}
 		s.applyMiddleMousePan(cam, st.Mouse.X, st.Mouse.Y, st.Mouse.Middle.Pressed)
-		s.applyWheelZoom(cam, bounds.W, st.Mouse.X, st.Mouse.Y, st.Mouse.WheelY)
+		s.applyWheelZoom(w, cam, bounds.W, st.Mouse.X, st.Mouse.Y, st.Mouse.WheelY)
 	} else {
 		s.dragging = false
 	}
 
-	minX, maxX, minY, maxY := scrollLimits(bounds.W, bounds.H, cam.Zoom)
+	minX, maxX, minY, maxY := scrollLimits(w, bounds.W, bounds.H, cam.Zoom)
 	cam.X = clamp(cam.X, minX, maxX)
 	cam.Y = clamp(cam.Y, minY, maxY)
 	snapCameraToPixelGrid(cam)
@@ -106,11 +107,11 @@ func (s *CameraScrollSystem) applyMiddleMousePan(cam *components.Camera, mx, my 
 
 // applyWheelZoom zooms toward the cursor so the world point under the mouse
 // stays fixed. Scroll over the ImGui panel is ignored.
-func (s *CameraScrollSystem) applyWheelZoom(cam *components.Camera, screenW, mx, my, wheelY float64) {
+func (s *CameraScrollSystem) applyWheelZoom(w *ecs.World, cam *components.Camera, screenW, mx, my, wheelY float64) {
 	if wheelY == 0 {
 		return
 	}
-	if mx >= gameconfig.Global.PlayfieldWidth(screenW) {
+	if mx >= grid.PlayfieldWidth(w, screenW) {
 		return
 	}
 
@@ -170,12 +171,12 @@ func snapCameraToPixelGrid(cam *components.Camera) {
 // Negative minY (-ToolbarHeight/zoom in world space...): the toolbar is a
 // screen-space chrome band; overscroll of ToolbarHeight screen pixels equals
 // ToolbarHeight/zoom world units.
-func scrollLimits(screenW, screenH, zoom float64) (minX, maxX, minY, maxY float64) {
+func scrollLimits(w *ecs.World, screenW, screenH, zoom float64) (minX, maxX, minY, maxY float64) {
 	if zoom <= 0 {
 		zoom = 1
 	}
 	cfg := gameconfig.Global
-	viewW := cfg.PlayfieldWidth(screenW) / zoom
+	viewW := grid.PlayfieldWidth(w, screenW) / zoom
 	viewH := screenH / zoom
 
 	minX = 0
